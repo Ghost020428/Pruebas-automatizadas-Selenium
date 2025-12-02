@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión Académica</title>
+    <!-- Tailwind CSS para diseño rápido -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- SECCIÓN DE LOGIN -->
+    <div id="login-section" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded shadow-md w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">Acceso Académico</h2>
+            <div id="login-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                Credenciales inválidas
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Usuario</label>
+                <input type="text" id="username" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none" placeholder="admin">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Contraseña</label>
+                <input type="password" id="password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none" placeholder="12345">
+            </div>
+            <button onclick="login()" id="btn-login" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none">
+                Ingresar
+            </button>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DASHBOARD (CRUD) -->
+    <div id="dashboard-section" class="hidden container mx-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Gestión de Estudiantes</h1>
+            <button onclick="logout()" class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded">Cerrar Sesión</button>
+        </div>
+
+        <!-- FORMULARIO DE CREACIÓN / EDICIÓN -->
+        <div class="bg-white p-6 rounded shadow mb-6 border-t-4 border-blue-500">
+            <h3 class="text-lg font-bold mb-4" id="form-title">Registrar Nuevo Estudiante</h3>
+            <!-- Campo oculto para guardar el ID cuando editamos -->
+            <input type="hidden" id="student-id"> 
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="student-name" placeholder="Nombre Completo" class="border p-2 rounded w-full">
+                <input type="text" id="student-code" placeholder="Código Estudiantil" class="border p-2 rounded w-full">
+                <select id="student-grade" class="border p-2 rounded w-full">
+                    <option value="">Seleccionar Grado</option>
+                    <option value="10">Décimo</option>
+                    <option value="11">Undécimo</option>
+                </select>
+            </div>
+            
+            <!-- Mensajes de feedback -->
+            <div id="form-error" class="hidden text-red-500 text-sm mt-2 font-bold">Todos los campos son obligatorios</div>
+            <div id="success-msg" class="hidden text-green-600 font-bold mt-2 text-lg">¡Operación exitosa!</div>
+
+            <!-- Botones de Acción -->
+            <div class="mt-4 flex gap-2">
+                <button onclick="saveStudent()" id="btn-save" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-200">
+                    Guardar Estudiante
+                </button>
+                <button onclick="cancelEdit()" id="btn-cancel" class="hidden bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition duration-200">
+                    Cancelar Edición
+                </button>
+            </div>
+        </div>
+
+        <!-- BUSCADOR -->
+        <div class="mb-4">
+            <input type="text" id="search-input" onkeyup="searchStudent()" placeholder="Buscar por nombre..." class="w-full border p-3 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <div id="no-records" class="hidden text-gray-500 mt-2 italic">No se encontraron registros.</div>
+        </div>
+
+        <!-- TABLA DE DATOS -->
+        <div class="bg-white rounded shadow overflow-hidden">
+            <table class="min-w-full leading-normal">
+                <thead>
+                    <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                        <th class="py-3 px-6 text-left">Código</th>
+                        <th class="py-3 px-6 text-left">Nombre</th>
+                        <th class="py-3 px-6 text-left">Grado</th>
+                        <th class="py-3 px-6 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="student-table-body" class="text-gray-600 text-sm font-light">
+                    <!-- Las filas se generan aquí con JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // --- BASE DE DATOS LOCAL (Array) ---
+        let students = [
+            { id: 1, name: "Juan Perez", code: "A001", grade: "10" },
+            { id: 2, name: "Maria Gomez", code: "A002", grade: "11" }
+        ];
+
+        // --- FUNCIONES DE SESIÓN ---
+        function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            
+            if (user === 'admin' && pass === '12345') {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('dashboard-section').classList.remove('hidden');
+                renderTable();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        // --- FUNCIONES CRUD ---
+        
+        // READ (Leer y mostrar tabla)
+        function renderTable(data = students) {
+            const tbody = document.getElementById('student-table-body');
+            tbody.innerHTML = '';
+            
+            if(data.length === 0) {
+                document.getElementById('no-records').classList.remove('hidden');
+            } else {
+                document.getElementById('no-records').classList.add('hidden');
+            }
+
+            data.forEach(student => {
+                const row = `
+                    <tr class="border-b border-gray-200 hover:bg-gray-100">
+                        <td class="py-3 px-6 text-left whitespace-nowrap font-medium">${student.code}</td>
+                        <td class="py-3 px-6 text-left">${student.name}</td>
+                        <td class="py-3 px-6 text-left">${student.grade}</td>
+                        <td class="py-3 px-6 text-center">
+                            <div class="flex item-center justify-center gap-2">
+                                <button onclick="loadForEdit(${student.id})" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transform hover:scale-105 transition edit-btn">
+                                    Editar
+                                </button>
+                                <button onclick="deleteStudent(${student.id})" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transform hover:scale-105 transition delete-btn">
+                                    Eliminar
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // CREATE & UPDATE (Guardar o Actualizar)
+        function saveStudent() {
+            const id = document.getElementById('student-id').value;
+            const name = document.getElementById('student-name').value;
+            const code = document.getElementById('student-code').value;
+            const grade = document.getElementById('student-grade').value;
+
+            // Validación simple
+            if (!name || !code || !grade) {
+                document.getElementById('form-error').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('form-error').classList.add('hidden');
+
+            if (id) {
+                // MODO EDICIÓN (UPDATE)
+                const index = students.findIndex(s => s.id == id);
+                if(index !== -1) {
+                    students[index] = { id: parseInt(id), name, code, grade };
+                    cancelEdit(); // Resetear formulario
+                }
+            } else {
+                // MODO CREACIÓN (CREATE)
+                students.push({
+                    id: Date.now(),
+                    name: name,
+                    code: code,
+                    grade: grade
+                });
+                // Limpiar campos
+                document.getElementById('student-name').value = '';
+                document.getElementById('student-code').value = '';
+                document.getElementById('student-grade').value = '';
+            }
+
+            // Mostrar mensaje de éxito
+            const msg = document.getElementById('success-msg');
+            msg.classList.remove('hidden');
+            setTimeout(() => msg.classList.add('hidden'), 3000);
+
+            renderTable();
+        }
+
+        // PREPARAR PARA EDITAR (Cargar datos en el form)
+        function loadForEdit(id) {
+            const student = students.find(s => s.id === id);
+            if (!student) return;
+
+            // Rellenar inputs
+            document.getElementById('student-id').value = student.id;
+            document.getElementById('student-name').value = student.name;
+            document.getElementById('student-code').value = student.code;
+            document.getElementById('student-grade').value = student.grade;
+
+            // Cambiar UI a modo edición
+            document.getElementById('form-title').innerText = "Editar Estudiante: " + student.name;
+            const saveBtn = document.getElementById('btn-save');
+            saveBtn.innerText = "Actualizar Datos";
+            saveBtn.classList.remove('bg-green-500', 'hover:bg-green-700');
+            saveBtn.classList.add('bg-orange-500', 'hover:bg-orange-700');
+            
+            document.getElementById('btn-cancel').classList.remove('hidden');
+        }
+
+        // CANCELAR EDICIÓN
+        function cancelEdit() {
+            document.getElementById('student-id').value = '';
+            document.getElementById('student-name').value = '';
+            document.getElementById('student-code').value = '';
+            document.getElementById('student-grade').value = '';
+            
+            // Restaurar UI a modo creación
+            document.getElementById('form-title').innerText = "Registrar Nuevo Estudiante";
+            const saveBtn = document.getElementById('btn-save');
+            saveBtn.innerText = "Guardar Estudiante";
+            saveBtn.classList.add('bg-green-500', 'hover:bg-green-700');
+            saveBtn.classList.remove('bg-orange-500', 'hover:bg-orange-700');
+            
+            document.getElementById('btn-cancel').classList.add('hidden');
+        }
+
+        // DELETE (Eliminar)
+        function deleteStudent(id) {
+            if(confirm('¿Estás seguro de eliminar este registro?')) {
+                students = students.filter(s => s.id !== id);
+                renderTable();
+            }
+        }
+
+        // BUSQUEDA
+        function searchStudent() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = students.filter(s => s.name.toLowerCase().includes(query));
+            renderTable(filtered);
+        }
+    </script>
+</body>
+</html>
